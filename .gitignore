@@ -1,4 +1,8 @@
+*.flac
 *.m4a
+*.wav
+
+*.bat
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

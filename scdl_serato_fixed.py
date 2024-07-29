@@ -12,69 +12,12 @@ from mutagen.flac import FLAC
 from mutagen.mp4 import MP4
 from send2trash import send2trash
 
-SILENCE_FILE_NAME = 'silence.m4a'
-SILENCE_DURATION = 0.01
-CONCAT_TXT_FILE_NAME = 'concat.txt'
 ARCHIVE_PATH = r'.\Extended Mixes\archive.txt'
 BLANK = ''
 URL = 'https://soundcloud.com/tjerbor-fritzasnt/sets/dll'
 
 
-def render_silence():
-    ffmpeg = FFmpeg() \
-        .option('y') \
-        .option('f', 'lavfi') \
-        .input('anullsrc=channel_layout=stereo:sample_rate=48000') \
-        .option('t', SILENCE_DURATION) \
-        .output(SILENCE_FILE_NAME)
 
-    ffmpeg.execute()
-
-
-def delete_silence():
-    if os.path.isfile(SILENCE_FILE_NAME):
-        os.remove(SILENCE_FILE_NAME)
-    else:
-        # If it fails, inform the user.
-        print(f'Error: {SILENCE_FILE_NAME} does not exist.')
-
-
-def concant_silence(original_filepath: str, muxed_filedpath: str):
-    with open(CONCAT_TXT_FILE_NAME, 'w', encoding="utf-8") as txt:
-        txt.write(
-            f'file \'{SILENCE_FILE_NAME}\'\nfile \'{original_filepath}\''
-        )
-
-    ffmpeg = FFmpeg() \
-        .option('y') \
-        .option('f', 'concat') \
-        .option('safe', 0) \
-        .input(CONCAT_TXT_FILE_NAME) \
-        .output(muxed_filedpath, c='copy')
-
-    ffmpeg.execute()
-
-
-def fix_m4a_files(files):
-    render_silence()
-
-    try:
-        for file in files:
-            muxed_filepath = f'{Path(file).with_suffix(BLANK)}-copy.m4a'
-            concant_silence(file, muxed_filepath)
-
-            original_m4a = MP4(file)
-            muxed_m4a = MP4(muxed_filepath)
-            muxed_m4a.tags = original_m4a.tags
-            muxed_m4a.save()
-
-            send2trash(file)
-            os.rename(muxed_filepath, file)
-    except Exception:
-        print(traceback.format_exc())
-
-    Path.unlink(Path(CONCAT_TXT_FILE_NAME), missing_ok=True)
-    delete_silence()
 
 
 def download(url: str):

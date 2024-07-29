@@ -2,8 +2,10 @@ import glob
 import os
 import sys
 import traceback
+from logging import info
 from pathlib import Path
 
+from colorama import just_fix_windows_console
 from ffmpeg import FFmpeg
 from mutagen.mp4 import MP4
 from send2trash import send2trash
@@ -11,7 +13,6 @@ from send2trash import send2trash
 SILENCE_FILE_NAME = '__silence__.m4a'
 SILENCE_DURATION = 0.01
 CONCAT_TXT_FILE_NAME = 'concat.txt'
-BLANK = ''
 
 
 def render_silence(silence_file_name: str = SILENCE_FILE_NAME, silence_duration: int | float = SILENCE_DURATION):
@@ -33,7 +34,7 @@ def delete_silence(silence_file_name: str):
         print(f'Error: {silence_file_name} does not exist.')
 
 
-def concant_silence(audio_filepath: str, muxed_audio_filedpath: str):
+def concat_silence(audio_filepath: str, muxed_audio_filedpath: str):
     with open(CONCAT_TXT_FILE_NAME, 'w', encoding="utf-8") as txt:
         txt.write(
             f'file \'{SILENCE_FILE_NAME}\'\nfile \'{audio_filepath}\''
@@ -55,11 +56,12 @@ def delete_concat_txt():
 
 def fix_m4a_files(files: list | set, silence_duration: int | float = SILENCE_DURATION):
     render_silence(silence_duration=silence_duration)
+    blank = ''
 
     try:
         for file in files:
-            muxed_filepath = f'{Path(file).with_suffix(BLANK)}-copy.m4a'
-            concant_silence(file, muxed_filepath)
+            muxed_filepath = f'{Path(file).with_suffix(blank)}-copy.m4a'
+            concat_silence(file, muxed_filepath)
 
             original_m4a = MP4(file)
             muxed_m4a = MP4(muxed_filepath)
@@ -68,6 +70,7 @@ def fix_m4a_files(files: list | set, silence_duration: int | float = SILENCE_DUR
 
             send2trash(file)
             os.rename(muxed_filepath, file)
+            info(f'{file} \033[4m\033[1;33mfixed.\033[0m')
     except Exception:
         print(traceback.format_exc())
 
@@ -80,6 +83,7 @@ def fix_all_m4a_files_in_root(silence_duration: int | float = SILENCE_DURATION):
 
 
 def main():
+    just_fix_windows_console()
     if len(sys.argv) == 1:
         fix_all_m4a_files_in_root()
     elif len(sys.argv) == 2:

@@ -3,27 +3,31 @@ import logging
 import os
 import subprocess
 import sys
-import traceback
 from logging import info
 from pathlib import Path
 
+import pyperclip
+from colorama import just_fix_windows_console
 from ffmpeg import FFmpeg
 from mutagen.flac import FLAC
-from mutagen.mp4 import MP4
 from send2trash import send2trash
+
+from m4a_fix import fix_m4a_files
 
 ARCHIVE_PATH = r'.\Extended Mixes\archive.txt'
 BLANK = ''
-URL = 'https://soundcloud.com/tjerbor-fritzasnt/sets/dll'
+DEFAULT_URL = 'https://soundcloud.com/tjerbor-fritzasnt/sets/dll'
 
 
-
-
-
-def download(url: str):
+def default_download(url: str):
     subprocess.run(['scdl.exe', '-l', str(url), '--force-metadata', '--original-name', '--auth-token',
                     os.environ.get('authtoken', ''),
                     '--no-playlist-folder', '--playlist-name-format', r'{title}', '--download-archive', ARCHIVE_PATH])
+
+
+def quick_download(url: str):
+    subprocess.run(['scdl.exe', '-l', str(url), '--force-metadata', '--original-name', '--auth-token',
+                    os.environ.get('authtoken', ''), '--playlist-name-format', r'{title} [{id}]'])
 
 
 def clean_archive(filepath):
@@ -60,6 +64,7 @@ def downscale_flac():
 
             send2trash(flac)
             os.rename(output_filepath, flac)
+            info(f'{flac} downscaled.')
 
 
 def convert_wav_to_flac():
@@ -76,27 +81,51 @@ def convert_wav_to_flac():
 
         ffmpeg.execute()
         send2trash(wav)
+        info(f'{wav} converted.')
 
 
-def main(url: str):
+def scdl_extended_process():
     # Files to ignore
     m4a_files_before_download = set(glob.glob('*.m4a'))
 
-    info(f'Downloading playlist entries from {url}')
-    download(url)
-    info('Cleaning archive.')
+    info(f'\033[96mDownloading playlist entries from {DEFAULT_URL}\033[0m')
+    default_download(DEFAULT_URL)
+    info('\033[96mCleaning archive.\033[0m')
     clean_archive(ARCHIVE_PATH)
 
-    info('Fixing m4a files for Serato.')
+    info('\033[96mFixing m4a files for Serato.\033[0m')
     m4a_files_after_download = set(glob.glob('*.m4a'))
     fix_m4a_files(list(m4a_files_after_download - m4a_files_before_download))
 
-    info('Downscaling flac files.')
+    info('\033[96mDownscaling flac files.\033[0m')
     downscale_flac()
-    info('Converting wav files to flac.')
+    info('\033[96mConverting wav files to flac.\033[0m')
     convert_wav_to_flac()
 
 
-if __name__ == '__main__':
+def quick_dl(url: str):
+    m4a_files_before_download = set(glob.glob('**/*.m4a', recursive=True))
+
+    info(f'\033[96mDownloading {url}\033[0m')
+    quick_download(url)
+
+    info('\033[96mFixing m4a files for Serato.\033[0m')
+    m4a_files_after_download = set(glob.glob('**/*.m4a', recursive=True))
+    fix_m4a_files(list(m4a_files_after_download - m4a_files_before_download))
+
+
+def main():
+    just_fix_windows_console()
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='INFO: %(message)s')
-    main(URL)
+    clipboard = pyperclip.paste()
+
+    if DEFAULT_URL in clipboard:
+        scdl_extended_process()
+    elif clipboard.startswith('https://soundcloud.com/'):
+        quick_dl(clipboard)
+    else:
+        scdl_extended_process()
+
+
+if __name__ == '__main__':
+    main()

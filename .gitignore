@@ -3,6 +3,7 @@
 *.wav
 
 *.bat
+/Extended Mixes/archive.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 import sys
-from logging import info
+import logging
 from pathlib import Path
 
 import pyperclip
@@ -64,7 +64,7 @@ def downscale_flac():
 
             send2trash(flac)
             os.rename(output_filepath, flac)
-            info(f'{flac} downscaled.')
+            logging.info(f'{flac} downscaled.')
 
 
 def convert_wav_to_flac():
@@ -81,35 +81,35 @@ def convert_wav_to_flac():
 
         ffmpeg.execute()
         send2trash(wav)
-        info(f'{wav} converted.')
+        logging.info(f'{wav} converted.')
 
 
 def scdl_extended_process():
     # Files to ignore
     m4a_files_before_download = set(glob.glob('*.m4a'))
 
-    info(f'\033[96mDownloading playlist entries from {DEFAULT_URL}\033[0m')
+    logging.info(f'\033[96mDownloading playlist entries from {DEFAULT_URL}\033[0m')
     default_download(DEFAULT_URL)
-    info('\033[96mCleaning archive.\033[0m')
+    logging.info('\033[96mCleaning archive.\033[0m')
     clean_archive(ARCHIVE_PATH)
 
-    info('\033[96mFixing m4a files for Serato.\033[0m')
+    logging.info('\033[96mFixing m4a files for Serato.\033[0m')
     m4a_files_after_download = set(glob.glob('*.m4a'))
     fix_m4a_files(list(m4a_files_after_download - m4a_files_before_download))
 
-    info('\033[96mDownscaling flac files.\033[0m')
+    logging.info('\033[96mDownscaling flac files.\033[0m')
     downscale_flac()
-    info('\033[96mConverting wav files to flac.\033[0m')
+    logging.info('\033[96mConverting wav files to flac.\033[0m')
     convert_wav_to_flac()
 
 
 def quick_dl(url: str):
     m4a_files_before_download = set(glob.glob('**/*.m4a', recursive=True))
 
-    info(f'\033[96mDownloading {url}\033[0m')
+    logging.info(f'\033[96mDownloading {url}\033[0m')
     quick_download(url)
 
-    info('\033[96mFixing m4a files for Serato.\033[0m')
+    logging.info('\033[96mFixing m4a files for Serato.\033[0m')
     m4a_files_after_download = set(glob.glob('**/*.m4a', recursive=True))
     fix_m4a_files(list(m4a_files_after_download - m4a_files_before_download))
 

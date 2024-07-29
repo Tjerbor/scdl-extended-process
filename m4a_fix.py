@@ -2,7 +2,7 @@ import glob
 import os
 import sys
 import traceback
-from logging import info
+import logging
 from pathlib import Path
 
 from colorama import just_fix_windows_console
@@ -70,7 +70,7 @@ def fix_m4a_files(files: list | set, silence_duration: int | float = SILENCE_DUR
 
             send2trash(file)
             os.rename(muxed_filepath, file)
-            info(f'{file} \033[4m\033[1;33mfixed.\033[0m')
+            logging.info(f'{file} \033[4m\033[1;33mfixed.\033[0m')
     except Exception:
         print(traceback.format_exc())
 
@@ -84,6 +84,7 @@ def fix_all_m4a_files_in_root(silence_duration: int | float = SILENCE_DURATION):
 
 def main():
     just_fix_windows_console()
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='INFO: %(message)s')
     if len(sys.argv) == 1:
         fix_all_m4a_files_in_root()
     elif len(sys.argv) == 2:

@@ -3,6 +3,7 @@
 *.wav
 
 *.bat
+*.exe
 /Extended Mixes/archive.txt
 
 # Byte-compiled / optimized / DLL files

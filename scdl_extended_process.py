@@ -35,7 +35,7 @@ def clean_archive(filepath):
         IDs = sorted(set(archive.read().splitlines()))
 
     with open(filepath, 'w') as archive:
-        archive.write('\n'.join(IDs))
+        archive.write('\n'.join(IDs) + '\n')
 
 
 def downscale_flac():

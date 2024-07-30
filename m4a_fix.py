@@ -1,11 +1,10 @@
 import glob
+import logging
 import os
-import shutil
 import subprocess
 import sys
-import traceback
-import logging
 import time
+import traceback
 from pathlib import Path
 
 from colorama import just_fix_windows_console
@@ -49,14 +48,12 @@ def concat_silence(audio_file_path: str, muxed_audio_file_path: str):
                         muxed_audio_file_path_concat_formatted])
 
     if any(x in audio_file_path for x in ['\'', '\\']):
-        formatted_audio_file_path = ('__tmp__.m4a')
+        formatted_audio_file_path = ('_' + os.path.basename(audio_file_path)
+                                     .replace('\'', '').replace(' ', ''))
+        formatted_muxed_audio_file_path = ('_' + os.path.basename(muxed_audio_file_path)
+                                           .replace('\'', '').replace(' ', ''))
         os.rename(audio_file_path, formatted_audio_file_path)
-        formatted_muxed_audio_file_path = ('__tmp_concat__.m4a')
-
-        print(audio_file_path)
-        print(formatted_audio_file_path)
-        print(muxed_audio_file_path)
-        print(formatted_muxed_audio_file_path)
+        time.sleep(2)
 
         create_concat_txt(formatted_audio_file_path)
         ffmpeg_exec(formatted_muxed_audio_file_path)
@@ -65,8 +62,6 @@ def concat_silence(audio_file_path: str, muxed_audio_file_path: str):
         os.rename(formatted_audio_file_path, audio_file_path)
         os.rename(formatted_muxed_audio_file_path, muxed_audio_file_path)
     else:
-        print(audio_file_path)
-        print(muxed_audio_file_path)
         create_concat_txt(audio_file_path)
         ffmpeg_exec(muxed_audio_file_path)
 

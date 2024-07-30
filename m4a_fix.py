@@ -1,8 +1,11 @@
 import glob
 import os
+import shutil
+import subprocess
 import sys
 import traceback
 import logging
+import time
 from pathlib import Path
 
 from colorama import just_fix_windows_console
@@ -35,21 +38,37 @@ def delete_silence(silence_file_name: str):
 
 
 def concat_silence(audio_file_path: str, muxed_audio_file_path: str):
-    with open(CONCAT_TXT_FILE_NAME, 'w', encoding="utf-8") as txt:
-        replacement = '\'\\\'\''
-        audio_file_path_concat_formatted = audio_file_path.replace('\'', replacement)
-        txt.write(
-            f'file \'{SILENCE_FILE_NAME}\'\nfile \'{audio_file_path_concat_formatted}\''
-        )
+    def create_concat_txt(input_audio_file_path: str):
+        with open(CONCAT_TXT_FILE_NAME, 'w', encoding="utf-8") as txt:
+            txt.write(
+                f'file \'{SILENCE_FILE_NAME}\'\nfile \'{input_audio_file_path}\''
+            )
 
-    ffmpeg = FFmpeg() \
-        .option('y') \
-        .option('f', 'concat') \
-        .option('safe', 0) \
-        .input(CONCAT_TXT_FILE_NAME) \
-        .output(muxed_audio_file_path, c='copy')
+    def ffmpeg_exec(muxed_audio_file_path_concat_formatted: str):
+        subprocess.run(['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', CONCAT_TXT_FILE_NAME, '-c', 'copy',
+                        muxed_audio_file_path_concat_formatted])
 
-    ffmpeg.execute()
+    if any(x in audio_file_path for x in ['\'', '\\']):
+        formatted_audio_file_path = ('__tmp__.m4a')
+        os.rename(audio_file_path, formatted_audio_file_path)
+        formatted_muxed_audio_file_path = ('__tmp_concat__.m4a')
+
+        print(audio_file_path)
+        print(formatted_audio_file_path)
+        print(muxed_audio_file_path)
+        print(formatted_muxed_audio_file_path)
+
+        create_concat_txt(formatted_audio_file_path)
+        ffmpeg_exec(formatted_muxed_audio_file_path)
+        time.sleep(5)
+
+        os.rename(formatted_audio_file_path, audio_file_path)
+        os.rename(formatted_muxed_audio_file_path, muxed_audio_file_path)
+    else:
+        print(audio_file_path)
+        print(muxed_audio_file_path)
+        create_concat_txt(audio_file_path)
+        ffmpeg_exec(muxed_audio_file_path)
 
 
 def delete_concat_txt():
@@ -76,7 +95,7 @@ def fix_m4a_files(files: list | set, silence_duration: int | float = SILENCE_DUR
     except Exception:
         print(traceback.format_exc())
 
-    delete_concat_txt()
+    # delete_concat_txt()
     delete_silence(SILENCE_FILE_NAME)
 
 

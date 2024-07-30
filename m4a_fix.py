@@ -3,7 +3,6 @@ import logging
 import os
 import subprocess
 import sys
-import time
 import traceback
 from pathlib import Path
 
@@ -53,11 +52,9 @@ def concat_silence(audio_file_path: str, muxed_audio_file_path: str):
         formatted_muxed_audio_file_path = ('_' + os.path.basename(muxed_audio_file_path)
                                            .replace('\'', '').replace(' ', ''))
         os.rename(audio_file_path, formatted_audio_file_path)
-        time.sleep(2)
 
         create_concat_txt(formatted_audio_file_path)
         ffmpeg_exec(formatted_muxed_audio_file_path)
-        time.sleep(5)
 
         os.rename(formatted_audio_file_path, audio_file_path)
         os.rename(formatted_muxed_audio_file_path, muxed_audio_file_path)
@@ -90,7 +87,7 @@ def fix_m4a_files(files: list | set, silence_duration: int | float = SILENCE_DUR
     except Exception:
         print(traceback.format_exc())
 
-    # delete_concat_txt()
+    delete_concat_txt()
     delete_silence(SILENCE_FILE_NAME)
 
 

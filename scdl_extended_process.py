@@ -3,7 +3,6 @@ import logging
 import os
 import subprocess
 import sys
-import logging
 from pathlib import Path
 
 import pyperclip
@@ -20,14 +19,16 @@ DEFAULT_URL = 'https://soundcloud.com/tjerbor-fritzasnt/sets/dll'
 
 
 def default_download(url: str):
-    subprocess.run(['scdl.exe', '-l', str(url), '--force-metadata', '--original-name', '--auth-token',
-                    os.environ.get('authtoken', ''),
-                    '--no-playlist-folder', '--playlist-name-format', r'{title}', '--download-archive', ARCHIVE_PATH])
+    subprocess.run(
+        ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--flac', '--original-name', '--auth-token',
+         os.environ.get('authtoken', ''), '--no-playlist-folder', '--playlist-name-format', r'{title}',
+         '--download-archive', ARCHIVE_PATH])
 
 
 def quick_download(url: str):
-    subprocess.run(['scdl.exe', '-l', str(url), '--force-metadata', '--original-name', '--auth-token',
-                    os.environ.get('authtoken', ''), '--playlist-name-format', r'{title} [{id}]'])
+    subprocess.run(
+        ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--flac', '--original-name', '--auth-token',
+         os.environ.get('authtoken', ''), '--playlist-name-format', r'{title} [{id}]'])
 
 
 def clean_archive(filepath):

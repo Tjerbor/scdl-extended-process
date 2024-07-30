@@ -34,10 +34,12 @@ def delete_silence(silence_file_name: str):
         print(f'Error: {silence_file_name} does not exist.')
 
 
-def concat_silence(audio_filepath: str, muxed_audio_filedpath: str):
+def concat_silence(audio_file_path: str, muxed_audio_file_path: str):
     with open(CONCAT_TXT_FILE_NAME, 'w', encoding="utf-8") as txt:
+        replacement = '\'\\\'\''
+        audio_file_path_concat_formatted = audio_file_path.replace('\'', replacement)
         txt.write(
-            f'file \'{SILENCE_FILE_NAME}\'\nfile \'{audio_filepath}\''
+            f'file \'{SILENCE_FILE_NAME}\'\nfile \'{audio_file_path_concat_formatted}\''
         )
 
     ffmpeg = FFmpeg() \
@@ -45,7 +47,7 @@ def concat_silence(audio_filepath: str, muxed_audio_filedpath: str):
         .option('f', 'concat') \
         .option('safe', 0) \
         .input(CONCAT_TXT_FILE_NAME) \
-        .output(muxed_audio_filedpath, c='copy')
+        .output(muxed_audio_file_path, c='copy')
 
     ffmpeg.execute()
 

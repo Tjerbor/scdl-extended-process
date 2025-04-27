@@ -1,6 +1,7 @@
 *.flac
 *.m4a
 *.wav
+*.mp3
 
 *.bat
 *.exe

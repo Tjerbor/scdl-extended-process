@@ -1,4 +1,5 @@
 import glob
+import json
 import logging
 import os
 import subprocess
@@ -13,16 +14,21 @@ from send2trash import send2trash
 
 from m4a_fix import fix_m4a_files
 
-ARCHIVE_PATH = r'.\Extended Mixes\archive.txt'
+SETTINGS_PATH = r'.\.scdl_settings'
+SETTINGS_ARCHIVE_VARIABLE_NAME = 'archive_path'
+SETTINGS_ARCHIVE_VARIABLE_DEFAULT_VALUE = r'.\Extended Mix\archive.txt'
+SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME = 'default_playlist'
+
+SETTINGS: dict
+
 BLANK = ''
-DEFAULT_URL = 'https://soundcloud.com/tjerbor-fritzasnt/sets/dll'
 
 
 def default_download(url: str):
     subprocess.run(
         ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--flac', '--original-name', '--auth-token',
          os.environ.get('authtoken', ''), '--no-playlist-folder', '--playlist-name-format', r'{title}',
-         '--download-archive', ARCHIVE_PATH])
+         '--download-archive', SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME]])
 
 
 def quick_download(url: str):
@@ -89,10 +95,12 @@ def scdl_extended_process():
     # Files to ignore
     m4a_files_before_download = set(glob.glob('*.m4a'))
 
-    logging.info(f'\033[96mDownloading playlist entries from {DEFAULT_URL}\033[0m')
-    default_download(DEFAULT_URL)
+    default_url = SETTINGS[SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME]
+
+    logging.info(f'\033[96mDownloading playlist entries from {default_url}\033[0m')
+    default_download(default_url)
     logging.info('\033[96mCleaning archive.\033[0m')
-    clean_archive(ARCHIVE_PATH)
+    clean_archive(default_url)
 
     logging.info('\033[96mFixing m4a files for Serato.\033[0m')
     m4a_files_after_download = set(glob.glob('*.m4a'))
@@ -115,14 +123,54 @@ def quick_dl(url: str):
     fix_m4a_files(list(m4a_files_after_download - m4a_files_before_download))
 
 
+def load_settings() -> dict:
+    settings_dict = dict()
+
+    if os.path.exists(SETTINGS_PATH):
+        with open(SETTINGS_PATH, 'r') as settings_file:
+            settings_data = json.load(settings_file)
+            settings_dict = settings_data
+
+    return settings_dict
+
+
+def update_settings(original_settings: dict, update__settings: dict):
+    original_settings.update(update__settings)
+
+    with open(SETTINGS_PATH, 'w') as settings_file:
+        json.dump(original_settings, settings_file)
+
+    return original_settings
+
+
+def validate_url(url: str) -> bool:
+    # Kept simple
+    return (
+            url.startswith('https://soundcloud.com/')
+            or url.startswith('https://on.soundcloud.com/')
+    )
+
+
 def main():
+    global SETTINGS
     just_fix_windows_console()
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='INFO: %(message)s')
     clipboard = pyperclip.paste()
 
-    if DEFAULT_URL in clipboard:
+    settings = load_settings()
+    update = dict()
+    if (SETTINGS_ARCHIVE_VARIABLE_NAME not in settings.keys()):
+        update[SETTINGS_ARCHIVE_VARIABLE_NAME] = SETTINGS_ARCHIVE_VARIABLE_DEFAULT_VALUE
+    if (SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME not in settings.keys() and validate_url(clipboard)):
+        update[SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME] = clipboard
+    if (len(update) > 0):
+        settings = update_settings(settings, update)
+
+    SETTINGS = settings
+
+    if SETTINGS[SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME] in clipboard:
         scdl_extended_process()
-    elif clipboard.startswith('https://soundcloud.com/'):
+    elif validate_url(clipboard):
         quick_dl(clipboard)
     else:
         scdl_extended_process()

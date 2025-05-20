@@ -16,33 +16,80 @@ from m4a_fix import fix_m4a_files
 
 SETTINGS_PATH = r'.\.scdl_settings'
 SETTINGS_ARCHIVE_VARIABLE_NAME = 'archive_path'
-SETTINGS_ARCHIVE_VARIABLE_DEFAULT_VALUE = r'.\Extended Mix\archive.txt'
+SETTINGS_ARCHIVE_VARIABLE_DEFAULT_VALUE = r'.\Extended Mixes\archive.txt'
 SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME = 'default_playlist'
+SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME = 'DL_interface'
+DOWNLOAD_INTERFACES = ['scdl', 'yt-dlp']
+SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_DEFAULT_VALUE = DOWNLOAD_INTERFACES[1]
 
 SETTINGS: dict
 
 BLANK = ''
 
 
-def default_download(url: str):
+def scdl_default_download(url: str):
     subprocess.run(
         ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--flac', '--original-name', '--auth-token',
          os.environ.get('authtoken', ''), '--no-playlist-folder', '--playlist-name-format', r'{title}',
          '--download-archive', SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME]])
 
 
-def quick_download(url: str):
+def scdl_quick_download(url: str):
     subprocess.run(
         ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--flac', '--original-name', '--auth-token',
          os.environ.get('authtoken', ''), '--playlist-name-format', r'{title} [{id}]'])
 
 
-def clean_archive(filepath):
-    with open(filepath, 'r') as archive:
-        IDs = sorted(set(archive.read().splitlines()))
+def yt_dlp_default_download(url: str):
+    subprocess.run(
+        ['yt-dlp', '-u', 'oauth', '-p', os.environ.get('authtoken', ''), '--embed-thumbnail', '--embed-metadata',
+         '--windows-filenames', '-o', r'%(uploader)s [%(artist)s] %(title)s [%(id)s].%(ext)s',
+         '--output-na-placeholder', '', '--download-archive', SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME], str(url)])
 
+
+def yt_dlp_quick_download(url: str, is_playlist: bool):
+    subprocess.run(
+        ['yt-dlp', '-u', 'oauth', '-p', os.environ.get('authtoken', ''), '--embed-thumbnail', '--embed-metadata',
+         '--windows-filenames', '-o',
+         (r'%(playlist_title)s/' if is_playlist else '') + r'%(uploader)s [%(artist)s] %(title)s [%(id)s].%(ext)s',
+         '--output-na-placeholder', '', str(url)])
+
+
+def clean_archive(filepath):
+    IDs = load_archive(filepath)
+    save_archive(filepath, IDs)
+
+
+def load_archive(filepath) -> list:
+    with open(filepath, 'r') as archive:
+        return sorted(set(archive.read().splitlines()))
+
+
+def save_archive(filepath: str, archive_IDS: list):
     with open(filepath, 'w') as archive:
-        archive.write('\n'.join(IDs) + '\n')
+        archive.write('\n'.join(archive_IDS) + '\n')
+
+
+def convert_to_scdl_archive(filepath: str):
+    try:
+        IDs = load_archive(filepath)
+        # case yt-dlp archive
+        if IDs[0].startswith('soundcloud '):
+            IDs = list(map(lambda id: id.removeprefix('soundcloud '), IDs))
+            save_archive(filepath, IDs)
+    except Exception as e:
+        pass
+
+
+def convert_to_yt_dlp_archive(filepath: str):
+    try:
+        IDs = load_archive(filepath)
+        # case yt-dlp archive
+        if IDs[0].isdigit():
+            IDs = list(map(lambda id: 'soundcloud ' + id, IDs))
+            save_archive(filepath, IDs)
+    except Exception as e:
+        pass
 
 
 def downscale_flac():
@@ -98,9 +145,17 @@ def scdl_extended_process():
     default_url = SETTINGS[SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME]
 
     logging.info(f'\033[96mDownloading playlist entries from {default_url}\033[0m')
-    default_download(default_url)
-    logging.info('\033[96mCleaning archive.\033[0m')
-    clean_archive(default_url)
+
+    if SETTINGS[SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME] == 'scdl':
+        convert_to_scdl_archive(SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME])
+        scdl_default_download(default_url)
+    elif SETTINGS[SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME] == 'yt-dlp':
+        convert_to_yt_dlp_archive(SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME])
+        yt_dlp_default_download(default_url)
+
+    if os.path.exists(SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME]):
+        logging.info('\033[96mCleaning archive.\033[0m')
+        clean_archive(SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME])
 
     logging.info('\033[96mFixing m4a files for Serato.\033[0m')
     m4a_files_after_download = set(glob.glob('*.m4a'))
@@ -116,7 +171,10 @@ def quick_dl(url: str):
     m4a_files_before_download = set(glob.glob('**/*.m4a', recursive=True))
 
     logging.info(f'\033[96mDownloading {url}\033[0m')
-    quick_download(url)
+    if SETTINGS[SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME] == 'scdl':
+        scdl_quick_download(url)
+    elif SETTINGS[SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME] == 'yt-dlp':
+        yt_dlp_quick_download(url, is_url_playlist(url))
 
     logging.info('\033[96mFixing m4a files for Serato.\033[0m')
     m4a_files_after_download = set(glob.glob('**/*.m4a', recursive=True))
@@ -151,6 +209,10 @@ def validate_url(url: str) -> bool:
     )
 
 
+def is_url_playlist(url: str) -> bool:
+    return '/sets/' in url
+
+
 def main():
     global SETTINGS
     just_fix_windows_console()
@@ -159,11 +221,13 @@ def main():
 
     settings = load_settings()
     update = dict()
-    if (SETTINGS_ARCHIVE_VARIABLE_NAME not in settings.keys()):
+    if SETTINGS_ARCHIVE_VARIABLE_NAME not in settings.keys():
         update[SETTINGS_ARCHIVE_VARIABLE_NAME] = SETTINGS_ARCHIVE_VARIABLE_DEFAULT_VALUE
-    if (SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME not in settings.keys() and validate_url(clipboard)):
+    if SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME not in settings.keys() and validate_url(clipboard):
         update[SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME] = clipboard
-    if (len(update) > 0):
+    if SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME not in settings.keys():
+        update[SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME] = SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_DEFAULT_VALUE
+    if len(update) > 0:
         settings = update_settings(settings, update)
 
     SETTINGS = settings

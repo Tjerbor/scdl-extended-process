@@ -20,31 +20,36 @@ SETTINGS_ARCHIVE_VARIABLE_DEFAULT_VALUE = r'.\Extended Mixes\archive.txt'
 SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME = 'default_playlist'
 SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME = 'DL_interface'
 DOWNLOAD_INTERFACES = ['scdl', 'yt-dlp']
-SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_DEFAULT_VALUE = DOWNLOAD_INTERFACES[1]
+SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_DEFAULT_VALUE = DOWNLOAD_INTERFACES[0]
 
 SETTINGS: dict
 
 BLANK = ''
 
 
-def scdl_default_download(url: str):
-    subprocess.run(
-        ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--flac', '--original-name', '--auth-token',
-         os.environ.get('authtoken', ''), '--no-playlist-folder', '--playlist-name-format', r'{title}',
-         '--download-archive', SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME]])
+def scdl_default_download(url: str, only_original: bool = False):
+    command = ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--original-name', '--auth-token',
+               os.environ.get('authtoken', ''), '--no-playlist-folder', '--playlist-name-format', r'{title}',
+               '--download-archive', SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME]]
+    if only_original:
+        command.append('--only-original')
+    subprocess.run(command)
 
 
-def scdl_quick_download(url: str):
-    subprocess.run(
-        ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--flac', '--original-name', '--auth-token',
-         os.environ.get('authtoken', ''), '--playlist-name-format', r'{title} [{id}]'])
+def scdl_quick_download(url: str, only_original: bool = False):
+    command = ['scdl.exe', '-l', str(url), '--force-metadata', '--original-art', '--original-name', '--auth-token',
+               os.environ.get('authtoken', ''), '--playlist-name-format', r'{title} [{id}]']
+    if only_original:
+        command.append('--only-original')
+    subprocess.run(command)
 
 
 def yt_dlp_default_download(url: str):
     subprocess.run(
         ['yt-dlp', '-u', 'oauth', '-p', os.environ.get('authtoken', ''), '--embed-thumbnail', '--embed-metadata',
          '--windows-filenames', '-o', r'%(uploader)s [%(artist)s] %(title)s [%(id)s].%(ext)s',
-         '--output-na-placeholder', '', '--download-archive', SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME], str(url)])
+         '--output-na-placeholder', '', '--download-archive', SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME],
+         '--no-abort-on-error', str(url)])
 
 
 def yt_dlp_quick_download(url: str, is_playlist: bool):
@@ -52,7 +57,7 @@ def yt_dlp_quick_download(url: str, is_playlist: bool):
         ['yt-dlp', '-u', 'oauth', '-p', os.environ.get('authtoken', ''), '--embed-thumbnail', '--embed-metadata',
          '--windows-filenames', '-o',
          (r'%(playlist_title)s/' if is_playlist else '') + r'%(uploader)s [%(artist)s] %(title)s [%(id)s].%(ext)s',
-         '--output-na-placeholder', '', str(url)])
+         '--output-na-placeholder', '', '--no-abort-on-error', str(url)])
 
 
 def clean_archive(filepath):
@@ -65,9 +70,9 @@ def load_archive(filepath) -> list:
         return sorted(set(archive.read().splitlines()))
 
 
-def save_archive(filepath: str, archive_IDS: list):
+def save_archive(filepath: str, archive_IDs: list):
     with open(filepath, 'w') as archive:
-        archive.write('\n'.join(archive_IDS) + '\n')
+        archive.write('\n'.join(archive_IDs) + '\n')
 
 
 def convert_to_scdl_archive(filepath: str):
@@ -75,7 +80,7 @@ def convert_to_scdl_archive(filepath: str):
         IDs = load_archive(filepath)
         # case yt-dlp archive
         if IDs[0].startswith('soundcloud '):
-            IDs = list(map(lambda id: id.removeprefix('soundcloud '), IDs))
+            IDs = list(map(lambda ID: ID.removeprefix('soundcloud '), IDs))
             save_archive(filepath, IDs)
     except Exception as e:
         pass
@@ -86,7 +91,7 @@ def convert_to_yt_dlp_archive(filepath: str):
         IDs = load_archive(filepath)
         # case yt-dlp archive
         if IDs[0].isdigit():
-            IDs = list(map(lambda id: 'soundcloud ' + id, IDs))
+            IDs = list(map(lambda ID: 'soundcloud ' + ID, IDs))
             save_archive(filepath, IDs)
     except Exception as e:
         pass
@@ -152,6 +157,9 @@ def scdl_extended_process():
     elif SETTINGS[SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME] == 'yt-dlp':
         convert_to_yt_dlp_archive(SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME])
         yt_dlp_default_download(default_url)
+        convert_to_scdl_archive(SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME])
+        scdl_default_download(default_url, only_original=True)
+        clean_failed_post_process_files()
 
     if os.path.exists(SETTINGS[SETTINGS_ARCHIVE_VARIABLE_NAME]):
         logging.info('\033[96mCleaning archive.\033[0m')
@@ -175,6 +183,8 @@ def quick_dl(url: str):
         scdl_quick_download(url)
     elif SETTINGS[SETTINGS_DOWNLOAD_INTERFACE_VARIABLE_NAME] == 'yt-dlp':
         yt_dlp_quick_download(url, is_url_playlist(url))
+        scdl_quick_download(url, only_original=True)
+        clean_failed_post_process_files()
 
     logging.info('\033[96mFixing m4a files for Serato.\033[0m')
     m4a_files_after_download = set(glob.glob('**/*.m4a', recursive=True))
@@ -211,6 +221,12 @@ def validate_url(url: str) -> bool:
 
 def is_url_playlist(url: str) -> bool:
     return '/sets/' in url
+
+
+def clean_failed_post_process_files():
+    for expr in ['].temp.mp3', '].png', '].jpg']:
+        for temp in glob.glob(f'**/*{expr}', recursive=True):
+            send2trash(temp)
 
 
 def main():

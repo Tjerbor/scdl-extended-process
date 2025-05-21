@@ -220,7 +220,7 @@ def validate_url(url: str) -> bool:
 
 
 def is_url_playlist(url: str) -> bool:
-    return '/sets/' in url
+    return '/sets/' in url and '?in=' not in url
 
 
 def clean_failed_post_process_files():

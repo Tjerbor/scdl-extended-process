@@ -14,7 +14,7 @@ from send2trash import send2trash
 
 from m4a_fix import fix_m4a_files
 
-SETTINGS_PATH = r'.\.scdl_settings'
+SETTINGS_PATH = r'.\.cli_dl_settings'
 SETTINGS_ARCHIVE_VARIABLE_NAME = 'archive_path'
 SETTINGS_ARCHIVE_VARIABLE_DEFAULT_VALUE = r'.\Extended Mixes\archive.txt'
 SETTINGS_DEFAULT_PLAYLIST_VARIABLE_NAME = 'default_playlist'

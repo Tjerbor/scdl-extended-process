@@ -129,7 +129,7 @@ def save_archive(filepath: str, archive_IDs: list):
 
 def convert_to_scdl_archive(filepath: str):
     def convert_help_scdl(ID: str):
-        return ID.removeprefix("soundcloud ") if ID.startswith("soundlcoud ") else ID
+        return ID.replace("soundcloud ", "") if "soundcloud " in ID else ID
 
     try:
         IDs = load_archive(filepath)
@@ -143,7 +143,7 @@ def convert_to_scdl_archive(filepath: str):
 
 def convert_to_yt_dlp_archive(filepath: str):
     def convert_help_dlp(ID: str):
-        return ID if ID.startswith("soundlcoud ") else f"soundcloud {ID}"
+        return ID if "soundcloud " in ID else f"soundcloud {ID}"
 
     try:
         IDs = load_archive(filepath)
